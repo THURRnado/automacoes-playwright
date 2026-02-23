@@ -80,6 +80,7 @@ test-results/
 **/screenshots/
 **/downloads/
 uploads/*
+!uploads/.gitkeep
 
 # Arquivos de dependências
 pip-log.txt

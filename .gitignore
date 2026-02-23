@@ -1,0 +1,116 @@
+# Ambientes virtuais
+venv/
+env/
+.env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+pythonenv*
+
+# Arquivos do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.python-version
+
+# Distribuição / empacotamento
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Arquivos de cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+
+# Arquivos de ambiente e secrets
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Arquivos de configuração local
+*.local
+config/local.py
+
+# Projetos Playwright 
+playwright-report/
+test-results/
+**/screenshots/
+**/downloads/
+uploads/
+
+# Arquivos de dependências
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Documentação
+docs/_build/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Virtualenv e pipenv
+Pipfile.lock
+poetry.lock
+pyproject.toml
+
+# Meus arquivos temporários
+temp/
+tmp/
+*.bak
+*.tmp

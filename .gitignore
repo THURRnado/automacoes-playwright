@@ -79,7 +79,7 @@ playwright-report/
 test-results/
 **/screenshots/
 **/downloads/
-uploads/
+uploads/*
 
 # Arquivos de dependências
 pip-log.txt

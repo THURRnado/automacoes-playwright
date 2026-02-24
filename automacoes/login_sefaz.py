@@ -17,8 +17,7 @@ def login():
 
         clicar(iframe, '//*[@id="form-cblogin-password"]/div[2]/input[2]')
 
+        return playwright, browser, context, page
+
     except Exception as e:
         print(f"Automação falhou: {e}")
-
-    finally:
-        return playwright, browser, context, page

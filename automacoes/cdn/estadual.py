@@ -22,8 +22,6 @@ def executar_automacao():
 
         salvar_download(page, '//*[@id="tbCaptcha"]/tbody/tr/td/button')
 
-        clicar(page, "https://www4.sefaz.pb.gov.br/atf/dia/DIAf_EmitirCertidaoDebito.do")
-
     except Exception as e:
         print(f"Automação falhou: {e}")
 

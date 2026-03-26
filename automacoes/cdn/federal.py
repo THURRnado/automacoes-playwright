@@ -1,5 +1,5 @@
 from core.navegador import iniciar_navegador, fechar_navegador
-from core.acoes import acessar, clicar, digitar, entrar_em_iframe, salvar_download, esperar
+from core.acoes import acessar, clicar, digitar, esperar
 
 """ Empresa para uso: 
     - NOME: ABC DISTRIBUIDORA JOAO PESSOA LTDA
@@ -13,9 +13,17 @@ def executar_automacao():
 
     try:
         
-        acessar(page, "https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj", wait_until="domcontentloaded")
+        acessar(page, "https://servicos.receitafederal.gov.br/servico/certidoes/", wait_until="networkidle")
+
+        esperar(page, 3)
+
+        clicar(page, '/html/body/app-root/mf-portal-layout/portal-main-layout/div/main/ng-component/app-informar-contribuinte/br-list/div/div[2]/div/a')
+
+        page.wait_for_selector('input[name="niContribuinte"]')
 
         digitar(page, name='niContribuinte', texto="04813255000124")
+
+        esperar(page, 2)
 
         clicar(page, '/html/body/app-root/mf-portal-layout/portal-main-layout/div/main/ng-component/ng-component/app-coleta-parametros-pj/app-coleta-parametros-template/form/div[2]/div[2]/button[2]')
 

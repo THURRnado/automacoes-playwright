@@ -11,11 +11,19 @@ def iniciar_navegador(headless: bool = False, slow_mo: int = 0, pasta_downloads:
     )
     
     context = browser.new_context(
-        viewport={"width": 1080, "height": 720},
+        viewport={"width": 1280, "height": 800},
         accept_downloads=True,
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        locale="pt-BR",
     )
     
     page = context.new_page()
+
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined
+        });
+    """)
     
     # Armazena o caminho para uso nas funções de download
     pasta = os.path.abspath(pasta_downloads)

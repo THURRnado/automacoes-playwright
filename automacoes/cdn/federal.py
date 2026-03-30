@@ -40,7 +40,7 @@ def executar_automacao():
     cnpj = "04813255000124"
 
     with Camoufox(
-        headless=False,
+        headless=True,
         geoip=True,
         locale=["pt-BR", "pt", "en-US"],
         os="windows",

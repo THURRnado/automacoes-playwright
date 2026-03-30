@@ -19,21 +19,27 @@ def acessar(page: Page, url: str, timeout: int = 30000, wait_until: str = "netwo
         return False
 
 
-def clicar(page: Page, xpath: str, timeout: int = 10000) -> bool:
+def clicar(page: Page, seletor, timeout: int = 10000) -> bool:
     try:
-        seletor = f"xpath={xpath}"
-        logger.info(f"Clicando em: {seletor}")
-        
-        elemento = page.locator(seletor)
-        
-        # 1. Garante que o elemento esteja visível e estável na tela
-        elemento.wait_for(state="visible", timeout=timeout)
+        # Se já for um locator (ex: frame.locator(...))
+        if hasattr(seletor, "click"):
+            elemento = seletor
+            logger.info("Clicando em locator direto")
+        else:
+            # Detecta automaticamente se é xpath ou outro tipo
+            if seletor.strip().startswith("//"):
+                seletor = f"xpath={seletor}"
+            
+            logger.info(f"Clicando em: {seletor}")
+            elemento = page.locator(seletor)
 
+        elemento.wait_for(state="visible", timeout=timeout)
         elemento.click()
-        
+
         return True
+
     except Exception as e:
-        logger.error(f"Erro ao clicar em {xpath}: {e}")
+        logger.error(f"Erro ao clicar em {seletor}: {e}")
         return False
 
 

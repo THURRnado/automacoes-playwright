@@ -4,7 +4,7 @@ import os
 
 def login():
 
-    playwright, browser, context, page = iniciar_navegador(headless=True, slow_mo=50)
+    playwright, browser, context, page = iniciar_navegador(headless=False, slow_mo=50)
 
     try:
         

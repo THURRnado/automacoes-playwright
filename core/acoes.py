@@ -1,6 +1,8 @@
 import logging
 from playwright.sync_api import Page
 import os
+import random
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,8 +21,16 @@ def acessar(page: Page, url: str, timeout: int = 30000, wait_until: str = "netwo
 
 def clicar(page: Page, xpath: str, timeout: int = 10000) -> bool:
     try:
-        logger.info(f"Clicando em: {xpath}")
-        page.locator(f"xpath={xpath}").click(timeout=timeout)
+        seletor = f"xpath={xpath}"
+        logger.info(f"Clicando em: {seletor}")
+        
+        elemento = page.locator(seletor)
+        
+        # 1. Garante que o elemento esteja visível e estável na tela
+        elemento.wait_for(state="visible", timeout=timeout)
+
+        elemento.click()
+        
         return True
     except Exception as e:
         logger.error(f"Erro ao clicar em {xpath}: {e}")
@@ -33,12 +43,20 @@ def digitar(page, xpath: str = None, texto: str = "", limpar: bool = True, timeo
             seletor = f"xpath=//input[@name='{name}']"
         else:
             seletor = f"xpath={xpath}"
+        
         logger.info(f"Digitando '{texto}' em: {seletor}")
         elemento = page.locator(seletor)
-        elemento.wait_for(timeout=timeout)
+        
+        # Garante que o elemento esteja visível e pronto
+        elemento.wait_for(state="visible", timeout=timeout)
+        
         if limpar:
-            elemento.clear()
-        elemento.type(texto)
+            elemento.fill("") # fill("") é mais eficiente que clear() em alguns contextos de formulário
+            
+        # O segredo está aqui: delay em milissegundos entre cada caractere
+        # 100ms a 200ms costuma ser o ideal para simular um humano
+        elemento.press_sequentially(texto, delay=150)
+        
         return True
     except Exception as e:
         logger.error(f"Erro ao digitar em {seletor}: {e}")

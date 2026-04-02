@@ -1,5 +1,5 @@
 import logging
-from playwright.sync_api import Page
+from playwright.sync_api import Page, FrameLocator
 import os
 import random
 import time
@@ -8,139 +8,166 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def acessar(page: Page, url: str, timeout: int = 30000, wait_until: str = "networkidle") -> bool:
+def acessar(page: Page, url: str, timeout: int = 30000, wait_until: str = "networkidle"):
     try:
         logger.info(f"Navegando para: {url}")
         page.goto(url, timeout=timeout, wait_until=wait_until)
         logger.info(f"Página carregada: {page.title()}")
-        return True
     except Exception as e:
         logger.error(f"Erro ao acessar {url}: {e}")
-        return False
-
-
-def clicar(page: Page, seletor, timeout: int = 10000) -> bool:
+        raise e
+ 
+ 
+def clicar(alvo, xpath: str, timeout: int = 20000):
     try:
-        # Se já for um locator (ex: frame.locator(...))
-        if hasattr(seletor, "click"):
-            elemento = seletor
-            logger.info("Clicando em locator direto")
-        else:
-            # Detecta automaticamente se é xpath ou outro tipo
-            if seletor.strip().startswith("//"):
-                seletor = f"xpath={seletor}"
-            
-            logger.info(f"Clicando em: {seletor}")
-            elemento = page.locator(seletor)
-
-        elemento.wait_for(state="visible", timeout=timeout)
-        elemento.click()
-
-        return True
-
+        logger.info(f"Clicando em: {xpath}")
+        alvo.locator(f"xpath={xpath}").click(timeout=timeout)
     except Exception as e:
-        logger.error(f"Erro ao clicar em {seletor}: {e}")
-        return False
+        logger.error(f"Erro ao clicar em {xpath}: {e}")
+        raise e
 
 
-def digitar(page, xpath: str = None, texto: str = "", limpar: bool = True, timeout: int = 10000, name: str = None) -> bool:
+def clicar_por_texto(alvo, texto: str, exato: bool = True, timeout: int = 20000):
     try:
-        if name:
-            seletor = f"xpath=//input[@name='{name}']"
-        else:
-            seletor = f"xpath={xpath}"
-        
-        logger.info(f"Digitando '{texto}' em: {seletor}")
-        elemento = page.locator(seletor)
-        
-        # Garante que o elemento esteja visível e pronto
+        logger.info(f"Clicando por texto: '{texto}'")
+        alvo.get_by_text(texto, exact=exato).click(timeout=timeout)
+    except Exception as e:
+        logger.error(f"Erro ao clicar por texto '{texto}': {e}")
+        raise e
+ 
+ 
+def digitar(alvo, xpath: str, texto: str = "", timeout: int = 20000):
+    """Digita em um elemento localizado por XPath. Sempre limpa antes via fill()."""
+    try:
+        logger.info(f"Digitando em: xpath={xpath}")
+        elemento = alvo.locator(f"xpath={xpath}")
         elemento.wait_for(state="visible", timeout=timeout)
-        
-        if limpar:
-            elemento.fill("") # fill("") é mais eficiente que clear() em alguns contextos de formulário
-            
-        # O segredo está aqui: delay em milissegundos entre cada caractere
-        # 100ms a 200ms costuma ser o ideal para simular um humano
-        elemento.press_sequentially(texto, delay=150)
-        
-        return True
+        elemento.fill(texto)
+    except Exception as e:
+        logger.error(f"Erro ao digitar em xpath={xpath}: {e}")
+        raise e
+ 
+ 
+def digitar_por_name(alvo, name: str, texto: str = "", timeout: int = 20000):
+    """Digita em um input localizado pelo atributo name."""
+    seletor = f"xpath=//input[@name='{name}']"
+    try:
+        logger.info(f"Digitando em: {seletor}")
+        elemento = alvo.locator(seletor)
+        elemento.wait_for(state="visible", timeout=timeout)
+        elemento.fill(texto)
     except Exception as e:
         logger.error(f"Erro ao digitar em {seletor}: {e}")
-        return False
+        raise e
 
 
-def aguardar_elemento(page: Page, xpath: str, timeout: int = 10000) -> bool:
+def limpar(alvo, xpath: str, timeout: int = 20000):
     try:
-        logger.info(f"Aguardando elemento: {xpath}")
-        page.locator(f"xpath={xpath}").wait_for(state="visible", timeout=timeout)
-        return True
+        logger.info(f"Limpando campo: {xpath}")
+        elemento = alvo.locator(f"xpath={xpath}")
+        elemento.wait_for(state="visible", timeout=timeout)
+        elemento.fill("")
     except Exception as e:
-        logger.error(f"Elemento não encontrado {xpath}: {e}")
-        return False
-
-
-def obter_texto(page: Page, xpath: str, timeout: int = 10000) -> str | None:
+        logger.error(f"Erro ao limpar campo {xpath}: {e}")
+        raise e
+ 
+ 
+def aguardar_elemento(alvo, xpath: str, state: str = "visible", timeout: int = 20000):
+    """
+    Aguarda um elemento atingir o estado desejado.
+    States válidos: 'attached', 'detached', 'visible', 'hidden'.
+    """
     try:
-        elemento = page.locator(f"xpath={xpath}")
+        logger.info(f"Aguardando elemento ({state}): {xpath}")
+        alvo.locator(f"xpath={xpath}").wait_for(state=state, timeout=timeout)
+    except Exception as e:
+        logger.error(f"Elemento não encontrado ({state}) {xpath}: {e}")
+        raise e
+ 
+ 
+def elemento_existe(alvo, xpath: str, timeout: int = 5000) -> bool:
+    """Retorna True se o elemento existir e estiver visível, False caso contrário."""
+    try:
+        alvo.locator(f"xpath={xpath}").wait_for(state="visible", timeout=timeout)
+        logger.info(f"Elemento encontrado: {xpath}")
+        return True
+    except Exception:
+        logger.info(f"Elemento não encontrado: {xpath}")
+        return False
+ 
+ 
+def obter_texto(alvo, xpath: str, timeout: int = 10000) -> str:
+    try:
+        elemento = alvo.locator(f"xpath={xpath}")
         elemento.wait_for(state="visible", timeout=timeout)
         texto = elemento.inner_text()
         logger.info(f"Texto obtido de {xpath}: '{texto}'")
         return texto
     except Exception as e:
         logger.error(f"Erro ao obter texto de {xpath}: {e}")
-        return None
-
-
-def selecionar_opcao(page: Page, xpath: str, valor: str, timeout: int = 10000) -> bool:
+        raise e
+ 
+ 
+def selecionar_opcao(alvo, xpath: str, valor: str, timeout: int = 10000):
     try:
         logger.info(f"Selecionando '{valor}' em: {xpath}")
-        page.locator(f"xpath={xpath}").select_option(valor, timeout=timeout)
-        return True
+        alvo.locator(f"xpath={xpath}").select_option(valor, timeout=timeout)
     except Exception as e:
         logger.error(f"Erro ao selecionar opção em {xpath}: {e}")
-        return False
-    
-
-def entrar_em_iframe(page: Page, xpath: str, timeout: int = 10000):
+        raise e
+ 
+ 
+def entrar_em_iframe(page: Page, xpath: str, timeout: int = 10000) -> FrameLocator:
     try:
         logger.info(f"Entrando no iframe: {xpath}")
+        page.locator(f"xpath={xpath}").wait_for(state="attached", timeout=timeout)
         frame = page.frame_locator(f"xpath={xpath}")
         return frame
     except Exception as e:
         logger.error(f"Erro ao entrar no iframe {xpath}: {e}")
-        return None
-    
-
+        raise e
+ 
+ 
 def esperar(page: Page, segundos: float) -> None:
-    logger.info(f"Aguardando {segundos} segundos...")
+    logger.info(f"Aguardando {segundos} segundos (Hard Sleep)...")
     page.wait_for_timeout(segundos * 1000)
-
-
-def salvar_download(page: Page, xpath: str, pasta: str = "uploads", frame=None) -> bool:
+ 
+ 
+def tirar_screenshot(page: Page, nome: str = "screenshot", pasta: str = "temp_screenshots") -> str:
+    """
+    Salva um screenshot da página atual. Útil para debug em produção.
+    Retorna o caminho absoluto da imagem salva.
+    """
+    try:
+        os.makedirs(pasta, exist_ok=True)
+        caminho = os.path.join(os.path.abspath(pasta), f"{nome}.png")
+        page.screenshot(path=caminho, full_page=True)
+        logger.info(f"Screenshot salvo em: {caminho}")
+        return caminho
+    except Exception as e:
+        logger.error(f"Erro ao tirar screenshot '{nome}': {e}")
+        raise e
+ 
+ 
+def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame=None, timeout: int = 60000, nome_arquivo: str = None) -> str:
+    """
+    Clica em um elemento que dispara um download e salva o arquivo localmente.
+    Retorna o caminho absoluto do arquivo baixado.
+    """
     try:
         os.makedirs(pasta, exist_ok=True)
         alvo = frame if frame else page
-        with page.expect_download() as download_info:
-            clicar(alvo, xpath)
-        download = download_info.value
-        caminho = os.path.join(os.path.abspath(pasta), download.suggested_filename)
-        download.save_as(caminho)
-        logger.info(f"Download salvo em: {caminho}")
-        return True
-    except Exception as e:
-        logger.error(f"Erro ao salvar download: {e}")
-        return False
-    
 
-def baixar_pdf_url(page: Page, url: str, nome_arquivo: str = "documento.pdf", pasta: str = "uploads") -> bool:
-    try:
-        os.makedirs(pasta, exist_ok=True)
-        response = page.request.get(url)
-        caminho = os.path.join(os.path.abspath(pasta), nome_arquivo)
-        with open(caminho, "wb") as f:
-            f.write(response.body())
-        logger.info(f"PDF salvo em: {caminho}")
-        return True
+        with page.expect_download(timeout=timeout) as download_info:
+            alvo.locator(f"xpath={xpath}").click()
+
+        download = download_info.value
+        nome_final = nome_arquivo if nome_arquivo else download.suggested_filename
+        caminho_absoluto = os.path.join(os.path.abspath(pasta), nome_final)
+        download.save_as(caminho_absoluto)
+        logger.info(f"Download salvo em: {caminho_absoluto}")
+
+        return caminho_absoluto
     except Exception as e:
-        logger.error(f"Erro ao baixar PDF: {e}")
-        return False
+        logger.error(f"Erro ao salvar download no xpath {xpath}: {e}")
+        raise e

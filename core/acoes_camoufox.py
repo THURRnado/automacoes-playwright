@@ -88,3 +88,9 @@ def digitar(page: Page, locator, texto: str) -> bool:
     except Exception as e:
         print(f"Erro ao digitar: {e}")
         return False
+
+    
+
+def esperar(page: Page, segundos: float) -> None:
+    logger.info(f"Aguardando {segundos} segundos...")
+    page.wait_for_timeout(segundos * 1000)

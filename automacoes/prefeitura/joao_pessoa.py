@@ -1,103 +1,87 @@
 import os
+from core.navegador import iniciar_navegador, fechar_navegador
+from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
+from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download, limpar
 from dotenv import load_dotenv
-from camoufox.sync_api import Camoufox
-from browserforge.fingerprints import Screen
-from core.acoes_camoufox import clicar, digitar, delay, simular_leitura, mover_mouse
 
 load_dotenv()
 
-"""
-Empresa para uso: 
-    - NOME: ABC DISTRIBUIDORA JOAO PESSOA LTDA
-    - CNPJ: 04813255000124
-    - IE: 161339387
-"""
+FERNET_KEY = os.getenv("FERNET_KEY")
 
-def captcha_tem_desafio(page) -> bool:
-    try:
-        page.locator("//iframe[contains(@src, 'bframe')]").wait_for(
-            state="visible",
-            timeout=3000
-        )
-        return True
-    except:
-        return False
+caminho_cert = os.getenv('CAMINHO_CERTIFICADO')
+senha_cert = os.getenv('SENHA_CERTIFICADO')
 
 
 def executar_automacao():
-    cnpj = "04813255000124"
-    senha = os.getenv("SENHA_ABC")
 
-    with Camoufox(
-        headless=False,
-        geoip=True,
-        locale=["pt-BR", "pt", "en-US"],
-        os="windows",
-        screen=Screen(max_width=1366, max_height=768),
-    ) as browser:
+    # No django isso seria pegando do banco, isso só rodo uma vez para cada cert de cada empresa
+    cert_enc, key_enc = extrair_e_criptografar_pfx(caminho_cert, senha_cert, FERNET_KEY)
 
-        page = browser.new_page()
+    # certificado = Certificado.objects.get(usuario=usuario)
+    cert_path, key_path = decifrar_certificado(
+        bytes(cert_enc),
+        bytes(key_enc),
+        FERNET_KEY
+    )
 
-        try:
-            # 🔥 1. WARM-UP (ESSENCIAL)
-            print("Aquecendo sessão...")
-            page.goto("https://www.google.com.br", wait_until="domcontentloaded")
-            simular_leitura(page, 4.0)
+    playwright, browser, context, page = None, None, None, None
 
-            # 🔥 2. LOGIN PAGE
-            url = "https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/portal/index.html#/login"
+    try:
+        playwright, browser, context, page = iniciar_navegador(
+            cert_path=cert_path,
+            key_path=key_path,
+            cert_origin="https://receita.joaopessoa.pb.gov.br"
+        )
 
-            print("Acessando página de login...")
-            page.goto(url, wait_until="domcontentloaded")
-            simular_leitura(page, 3.0)
+        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/portal/index.html#/login')
 
-            # 🔥 3. CAMPOS
-            input_cpf = page.locator("input[name='cpfCnpj']")
-            input_senha = page.locator("input[name='senha']")
+        clicar(page, '//*[@id="app"]/div/main/div/div/div/div[3]/div[2]/div/div[3]/a')
 
-            print("Digitando credenciais...")
-            digitar(page, input_cpf, cnpj)
-            delay(1.0, 2.0)
+        esperar(page, 10)
 
-            digitar(page, input_senha, senha)
-            simular_leitura(page, 2.0)
+        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf')
 
-            # 🔥 4. CAPTCHA
-            for tentativa in range(3):
-                print(f"Tentativa captcha {tentativa+1}")
+        esperar(page, 5)
 
-                frame = page.frame_locator("//iframe[@title='reCAPTCHA']")
-                checkbox = frame.locator("#recaptcha-anchor")
+        digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]', '02/2026')
 
-                mover_mouse(page)
-                clicar(page, checkbox)
+        digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idEnd_input"]', '02/2026')
 
-                delay(2.0, 3.0)
+        clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt131:j_idt136"]/div[2]')
 
-                if captcha_tem_desafio(page):
-                    print("Captcha com desafio detectado...")
+        salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_prestados.pdf')
 
-                    # comportamento humano → navegar novamente
-                    page.goto(url, wait_until="domcontentloaded")
-                    simular_leitura(page, 3.0)
+        clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu"]/div[2]')
 
-                    input_cpf = page.locator("input[name='cpfCnpj']")
-                    input_senha = page.locator("input[name='senha']")
+        clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu_1"]')
 
-                    digitar(page, input_cpf, cnpj)
-                    delay(1.0, 2.0)
-                    digitar(page, input_senha, senha)
+        salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_tomados.pdf')
 
-                    continue
+        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/exportacaonota/exportacaoNota.jsf')
 
-                break
+        esperar(page, 5)
 
-            # 🔥 5. LOGIN
-            print("Clicando em Entrar...")
-            btn_entrar = page.get_by_role("button", name="Entrar")
-            clicar(page, btn_entrar)
+        digitar(page, '//*[@id="j_idt102:j_idt106:idStart_input"]', '02/2026')
 
-            simular_leitura(page, 5.0)
+        digitar(page, '//*[@id="j_idt102:j_idt106:idEnd_input"]', '02/2026')
 
-        except Exception as e:
-            print(f"Erro na automação: {e}")
+        limpar(page, '//*[@id="j_idt102:j_idt119:idStart_input"]')
+
+        limpar(page, '//*[@id="j_idt102:j_idt119:idEnd_input"]')
+
+        clicar(page, '//*[@id="j_idt102:j_idt170"]')
+
+        salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_emitidas.xml')
+
+        clicar(page, '//*[@id="j_idt102:j_idt159:j_idt160"]/div/div[2]/div/div[2]')
+
+        clicar(page, '//*[@id="j_idt102:j_idt170"]')
+
+        salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')
+
+        esperar(page, 10)
+
+    finally:
+        if playwright:
+            fechar_navegador(playwright, browser)
+        apagar_certificado_temp(cert_path, key_path)

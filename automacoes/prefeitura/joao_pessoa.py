@@ -1,10 +1,14 @@
 import os
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
-from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download, limpar
+from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download, limpar, verificar_toast
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 FERNET_KEY = os.getenv("FERNET_KEY")
 
@@ -49,13 +53,27 @@ def executar_automacao():
 
         clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt131:j_idt136"]/div[2]')
 
-        salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_prestados.pdf')
+        try:
+            salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_prestados.pdf')
+        except Exception:
+            toast = verificar_toast(page)   
+            if toast:
+                logger.info(f"Toast capturado, continuando: '{toast}'")
+            else:
+                raise
 
         clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu"]/div[2]')
 
         clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu_1"]')
 
-        salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_tomados.pdf')
+        try:
+            salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_tomados.pdf')
+        except Exception:
+            toast = verificar_toast(page)   
+            if toast:
+                logger.info(f"Toast capturado, continuando: '{toast}'")
+            else:
+                raise
 
         acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/exportacaonota/exportacaoNota.jsf')
 
@@ -71,13 +89,27 @@ def executar_automacao():
 
         clicar(page, '//*[@id="j_idt102:j_idt170"]')
 
-        salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_emitidas.xml')
+        try:
+            salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_emitidas.xml')
+        except Exception:
+            toast = verificar_toast(page)   
+            if toast:
+                logger.info(f"Toast capturado, continuando: '{toast}'")
+            else:
+                raise
 
         clicar(page, '//*[@id="j_idt102:j_idt159:j_idt160"]/div/div[2]/div/div[2]')
 
         clicar(page, '//*[@id="j_idt102:j_idt170"]')
 
-        salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')
+        try:
+            salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')
+        except Exception:
+            toast = verificar_toast(page)   
+            if toast:
+                logger.info(f"Toast capturado, continuando: '{toast}'")
+            else:
+                raise
 
         esperar(page, 10)
 

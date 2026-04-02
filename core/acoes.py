@@ -149,7 +149,7 @@ def tirar_screenshot(page: Page, nome: str = "screenshot", pasta: str = "temp_sc
         raise e
  
  
-def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame=None, timeout: int = 60000, nome_arquivo: str = None) -> str:
+def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame=None, timeout: int = 150000, nome_arquivo: str = None) -> str:
     """
     Clica em um elemento que dispara um download e salva o arquivo localmente.
     Retorna o caminho absoluto do arquivo baixado.
@@ -171,3 +171,16 @@ def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame
     except Exception as e:
         logger.error(f"Erro ao salvar download no xpath {xpath}: {e}")
         raise e
+
+
+def verificar_toast(page: Page, timeout: int = 5000) -> str | None:
+    """
+    Verifica se apareceu uma mensagem toast na página.
+    Retorna o texto do toast ou None se não aparecer.
+    """
+    try:
+        elemento = page.locator("css=.toast-message")
+        elemento.wait_for(state="visible", timeout=timeout)
+        return elemento.inner_text()
+    except Exception:
+        return None

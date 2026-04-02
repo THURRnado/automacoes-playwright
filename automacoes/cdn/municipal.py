@@ -17,7 +17,7 @@ def executar_automacao():
 
         iframe = entrar_em_iframe(page, '//*[@id="dsf-screen"]')
 
-        digitar(iframe, '//*[@id="cadastroCodigoPesquisaDOC"]', "04813255000124", limpar=False)
+        digitar(iframe, '//*[@id="cadastroCodigoPesquisaDOC"]', "04813255000124")
 
         clicar(iframe, '//*[@id="dsf.evt.emitirCertidao"]')
 

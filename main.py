@@ -1,4 +1,4 @@
-from automacoes.prefeitura.joao_pessoa import executar_automacao
+from automacoes.cdn.estadual import executar_automacao
 from dotenv import load_dotenv
 
 load_dotenv()

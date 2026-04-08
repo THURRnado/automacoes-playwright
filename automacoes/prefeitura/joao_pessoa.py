@@ -1,7 +1,7 @@
 import os
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
-from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download, limpar, verificar_toast
+from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download, limpar, verificar_toast, scroll, clicar_js
 from dotenv import load_dotenv
 import logging
 
@@ -47,6 +47,7 @@ def executar_automacao():
 
         esperar(page, 5)
 
+        '''aguardar_elemento(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]')
         digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]', '02/2026')
 
         digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idEnd_input"]', '02/2026')
@@ -79,6 +80,7 @@ def executar_automacao():
 
         esperar(page, 5)
 
+        aguardar_elemento(page, '//*[@id="j_idt102:j_idt106:idStart_input"]')
         digitar(page, '//*[@id="j_idt102:j_idt106:idStart_input"]', '02/2026')
 
         digitar(page, '//*[@id="j_idt102:j_idt106:idEnd_input"]', '02/2026')
@@ -109,7 +111,24 @@ def executar_automacao():
             if toast:
                 logger.info(f"Toast capturado, continuando: '{toast}'")
             else:
-                raise
+                raise'''
+
+        clicar_js(page, "18642")
+        esperar(page, 5)
+
+        aguardar_elemento(page, '//*[@id="j_idt99:j_idt220:commandLinkSaveNoTask"]')
+        respostas = []
+
+        def capturar(response):
+            respostas.append(f"{response.status} {response.headers.get('content-type', '')} {response.url}")
+
+        page.on("response", capturar)
+        clicar(page, '//*[@id="j_idt99:j_idt220:commandLinkSaveNoTask"]')
+        esperar(page, 3)
+        page.remove_listener("response", capturar)
+
+        for r in respostas:
+            print(r)
 
         esperar(page, 10)
 

@@ -149,7 +149,7 @@ def tirar_screenshot(page: Page, nome: str = "screenshot", pasta: str = "temp_sc
         raise e
  
  
-def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame=None, timeout: int = 150000, nome_arquivo: str = None) -> str:
+def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame=None, timeout: int = 15000, nome_arquivo: str = None) -> str:
     """
     Clica em um elemento que dispara um download e salva o arquivo localmente.
     Retorna o caminho absoluto do arquivo baixado.
@@ -184,3 +184,47 @@ def verificar_toast(page: Page, timeout: int = 5000) -> str | None:
         return elemento.inner_text()
     except Exception:
         return None
+    
+
+def scroll(alvo, xpath: str = None, direction: str = "down", amount: int = 300, timeout: int = 20000) -> None:
+    """
+    Realiza scroll na página ou em um elemento específico.
+    direction: 'down', 'up', 'left', 'right'
+    amount: quantidade de pixels para rolar
+    xpath: se informado, faz scroll dentro do elemento; se None, faz scroll na página
+    """
+    try:
+        eixo_x = 0
+        eixo_y = 0
+
+        if direction == "down":
+            eixo_y = amount
+        elif direction == "up":
+            eixo_y = -amount
+        elif direction == "right":
+            eixo_x = amount
+        elif direction == "left":
+            eixo_x = -amount
+
+        if xpath:
+            logger.info(f"Scroll ({direction}, {amount}px) no elemento: {xpath}")
+            elemento = alvo.locator(f"xpath={xpath}")
+            elemento.wait_for(state="visible", timeout=timeout)
+            elemento.evaluate(f"el => el.scrollBy({eixo_x}, {eixo_y})")
+        else:
+            logger.info(f"Scroll ({direction}, {amount}px) na página")
+            alvo.evaluate(f"window.scrollBy({eixo_x}, {eixo_y})")
+
+    except Exception as e:
+        logger.error(f"Erro ao realizar scroll: {e}")
+        raise e
+    
+
+def clicar_js(page: Page, id_elemento: str) -> None:
+    """Clica em um elemento filho <a> pelo ID do elemento pai."""
+    try:
+        logger.info(f"Clicando via JS no elemento id: {id_elemento}")
+        page.evaluate(f'document.getElementById("{id_elemento}").querySelector("a").click()')
+    except Exception as e:
+        logger.error(f"Erro ao clicar via JS no elemento {id_elemento}: {e}")
+        raise e

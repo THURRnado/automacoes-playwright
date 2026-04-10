@@ -1,7 +1,7 @@
 import os
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
-from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download, limpar, verificar_toast, scroll, clicar_js
+from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download_ou_toast, limpar, clicar_js, tirar_screenshot
 from dotenv import load_dotenv
 import logging
 
@@ -41,44 +41,34 @@ def executar_automacao():
 
         clicar(page, '//*[@id="app"]/div/main/div/div/div/div[3]/div[2]/div/div[3]/a')
 
-        esperar(page, 10)
+        page.wait_for_url('**/bemVindo.jsf**', timeout=90000)
 
-        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf')
+        '''acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf', wait_until="load")
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
 
-        esperar(page, 5)
-
-        '''aguardar_elemento(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]')
+        aguardar_elemento(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]')
         digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]', '02/2026')
 
         digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idEnd_input"]', '02/2026')
 
         clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt131:j_idt136"]/div[2]')
 
-        try:
-            salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_prestados.pdf')
-        except Exception:
-            toast = verificar_toast(page)   
-            if toast:
-                logger.info(f"Toast capturado, continuando: '{toast}'")
-            else:
-                raise
+        salvar_download_ou_toast(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_prestados.pdf')
 
         clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu"]/div[2]')
 
         clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu_1"]')
 
+        salvar_download_ou_toast(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_tomados.pdf')
+
+        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/exportacaonota/exportacaoNota.jsf', wait_until="load")
         try:
-            salvar_download(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_tomados.pdf')
+            page.wait_for_load_state("networkidle", timeout=8000)
         except Exception:
-            toast = verificar_toast(page)   
-            if toast:
-                logger.info(f"Toast capturado, continuando: '{toast}'")
-            else:
-                raise
-
-        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/exportacaonota/exportacaoNota.jsf')
-
-        esperar(page, 5)
+            pass
 
         aguardar_elemento(page, '//*[@id="j_idt102:j_idt106:idStart_input"]')
         digitar(page, '//*[@id="j_idt102:j_idt106:idStart_input"]', '02/2026')
@@ -91,30 +81,21 @@ def executar_automacao():
 
         clicar(page, '//*[@id="j_idt102:j_idt170"]')
 
-        try:
-            salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_emitidas.xml')
-        except Exception:
-            toast = verificar_toast(page)   
-            if toast:
-                logger.info(f"Toast capturado, continuando: '{toast}'")
-            else:
-                raise
+        salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_emitidas.xml')
 
         clicar(page, '//*[@id="j_idt102:j_idt159:j_idt160"]/div/div[2]/div/div[2]')
 
         clicar(page, '//*[@id="j_idt102:j_idt170"]')
 
-        try:
-            salvar_download(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')
-        except Exception:
-            toast = verificar_toast(page)   
-            if toast:
-                logger.info(f"Toast capturado, continuando: '{toast}'")
-            else:
-                raise'''
+        salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')'''
 
         clicar_js(page, "18642")
         esperar(page, 5)
+
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
 
         aguardar_elemento(page, '//*[@id="j_idt99:j_idt220:commandLinkSaveNoTask"]')
         respostas = []
@@ -129,6 +110,22 @@ def executar_automacao():
 
         for r in respostas:
             print(r)
+
+        # Debug: ver o que aparece na tela após o clique
+        tirar_screenshot(page, "modal_apos_clique")
+
+        # Inspecionar HTML do dialog visível
+        html_dialog = page.evaluate("""
+            () => {
+                const dialogs = document.querySelectorAll('.ui-dialog');
+                return Array.from(dialogs)
+                    .filter(d => d.style.display !== 'none' && d.offsetParent !== null)
+                    .map(d => d.outerHTML.substring(0, 2000));
+            }
+        """)
+        for i, h in enumerate(html_dialog):
+            print(f"--- Dialog {i} ---")
+            print(h)
 
         esperar(page, 10)
 

@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def acessar(page: Page, url: str, timeout: int = 30000, wait_until: str = "networkidle"):
+def acessar(page: Page, url: str, timeout: int = 60000, wait_until: str = "networkidle"):
     try:
         logger.info(f"Navegando para: {url}")
         page.goto(url, timeout=timeout, wait_until=wait_until)
@@ -72,7 +72,7 @@ def limpar(alvo, xpath: str, timeout: int = 20000):
         raise e
  
  
-def aguardar_elemento(alvo, xpath: str, state: str = "visible", timeout: int = 20000):
+def aguardar_elemento(alvo, xpath: str, state: str = "visible", timeout: int = 30000):
     """
     Aguarda um elemento atingir o estado desejado.
     States válidos: 'attached', 'detached', 'visible', 'hidden'.
@@ -173,17 +173,33 @@ def salvar_download(page: Page, xpath: str, pasta: str = "temp_downloads", frame
         raise e
 
 
-def verificar_toast(page: Page, timeout: int = 5000) -> str | None:
+def verificar_toast(page: Page, timeout: int = 5000, seletor: str = "css=.toast-message") -> str | None:
     """
     Verifica se apareceu uma mensagem toast na página.
     Retorna o texto do toast ou None se não aparecer.
     """
     try:
-        elemento = page.locator("css=.toast-message")
+        elemento = page.locator(seletor)
         elemento.wait_for(state="visible", timeout=timeout)
         return elemento.inner_text()
     except Exception:
         return None
+
+
+def salvar_download_ou_toast(page: Page, xpath: str, nome_arquivo: str, pasta: str = "temp_downloads", frame=None, timeout: int = 15000) -> str | None:
+    """
+    Tenta salvar um download. Se falhar, verifica se há toast de aviso (ex: sem registros).
+    Retorna o caminho do arquivo baixado ou None se o toast indicar ausência de dados.
+    Relança a exceção se não houver toast.
+    """
+    try:
+        return salvar_download(page, xpath, pasta=pasta, frame=frame, timeout=timeout, nome_arquivo=nome_arquivo)
+    except Exception:
+        toast = verificar_toast(page)
+        if toast:
+            logger.info(f"Toast capturado ao tentar baixar '{nome_arquivo}', continuando: '{toast}'")
+            return None
+        raise
     
 
 def scroll(alvo, xpath: str = None, direction: str = "down", amount: int = 300, timeout: int = 20000) -> None:
@@ -228,3 +244,21 @@ def clicar_js(page: Page, id_elemento: str) -> None:
     except Exception as e:
         logger.error(f"Erro ao clicar via JS no elemento {id_elemento}: {e}")
         raise e
+    
+
+def acessar_com_retry(page: Page, url: str, tentativas: int = 3, intervalo: float = 5, wait_until: str = "networkidle", timeout: int = 20000):
+    """
+    Tenta acessar uma URL repetidamente até ter sucesso ou esgotar as tentativas.
+    Útil para páginas que demoram para estar disponíveis após autenticação.
+    """
+    for tentativa in range(1, tentativas + 1):
+        try:
+            logger.info(f"Tentativa {tentativa}/{tentativas} para: {url}")
+            acessar(page, url, timeout=timeout, wait_until=wait_until)
+            return
+        except Exception as e:
+            logger.warning(f"Tentativa {tentativa} falhou: {e}")
+            if tentativa == tentativas:
+                logger.error(f"Todas as tentativas esgotadas para: {url}")
+                raise
+            esperar(page, intervalo)

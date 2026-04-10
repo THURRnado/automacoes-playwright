@@ -117,3 +117,6 @@ temp/
 tmp/
 *.bak
 *.tmp
+
+.claudeignore
+CLAUDE.md

@@ -4,6 +4,7 @@ from core.cert_to_pem_criptography import decifrar_certificado, apagar_certifica
 from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download_ou_toast, limpar, clicar_js, tirar_screenshot
 from dotenv import load_dotenv
 import logging
+from datetime import datetime
 
 load_dotenv()
 
@@ -89,7 +90,33 @@ def executar_automacao():
 
         salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')'''
 
-        clicar_js(page, "18642")
+        # Gerenciar guias
+
+        clicar_js(page, "18640")
+
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+
+        aguardar_elemento(page, '//*[@id="j_idt99:listEntityDataTableGuia:idDataTableList_data"]/tr[1]')
+        tds = page.locator('//*[@id="j_idt99:listEntityDataTableGuia:idDataTableList_data"]/tr[1]/td').all()
+
+        td_3 = tds[3].inner_text().strip()
+        td_8 = tds[8].inner_text().strip().lower()
+
+        mes_atual = datetime.now().strftime("%m/%Y")
+
+        if td_3 != mes_atual:
+            logger.info(f"Competência {td_3} diferente do mês atual {mes_atual}, pulando...")
+        else:
+            if td_8 == "emitida":
+                logger.info("Guia já emitida, nada a fazer.")
+            else:
+                pass
+
+        # Emitir guia
+        ''''clicar_js(page, "18642")
         esperar(page, 5)
 
         try:
@@ -125,7 +152,7 @@ def executar_automacao():
         """)
         for i, h in enumerate(html_dialog):
             print(f"--- Dialog {i} ---")
-            print(h)
+            print(h)'''
 
         esperar(page, 10)
 

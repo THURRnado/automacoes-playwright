@@ -1,13 +1,8 @@
-<<<<<<< HEAD
-from core.navegador import iniciar_navegador, fechar_navegador
-from core.acoes import acessar, clicar, digitar, esperar
-=======
 import re
 import os
 from browserforge.fingerprints import Screen
 from camoufox.sync_api import Camoufox
 from core.acoes_camoufox import delay, simular_leitura, clicar, digitar
->>>>>>> f7485fc85a16d346879f299c3de3f0fb47a01835
 
 """
 INSTALAÇÃO:
@@ -53,23 +48,11 @@ def executar_automacao():
     ) as browser:
         page = browser.new_page()
 
-<<<<<<< HEAD
-    try:
-        
-        acessar(page, "https://servicos.receitafederal.gov.br/servico/certidoes/", wait_until="networkidle")
-
-        esperar(page, 3)
-
-        clicar(page, '/html/body/app-root/mf-portal-layout/portal-main-layout/div/main/ng-component/app-informar-contribuinte/br-list/div/div[2]/div/a')
-
-        page.wait_for_selector('input[name="niContribuinte"]')
-=======
         try:
             # 1. WARM-UP: Google antes de ir à Receita
             print("Aquecendo sessão via Google...")
             page.goto("https://www.google.com.br", wait_until="domcontentloaded", timeout=30000)
             simular_leitura(page, segundos=4.0)
->>>>>>> f7485fc85a16d346879f299c3de3f0fb47a01835
 
             # 2. PORTAL PRINCIPAL DA RECEITA
             print("Acessando portal principal...")
@@ -80,11 +63,6 @@ def executar_automacao():
             )
             simular_leitura(page, segundos=6.0)
 
-<<<<<<< HEAD
-        esperar(page, 2)
-
-        clicar(page, '/html/body/app-root/mf-portal-layout/portal-main-layout/div/main/ng-component/ng-component/app-coleta-parametros-pj/app-coleta-parametros-template/form/div[2]/div[2]/button[2]')
-=======
             # 3. PÁGINA DE CERTIDÕES
             print("Acessando página de emissão de CND...")
             page.goto(
@@ -93,7 +71,6 @@ def executar_automacao():
                 timeout=30000,
             )
             simular_leitura(page, segundos=4.0)
->>>>>>> f7485fc85a16d346879f299c3de3f0fb47a01835
 
             # 4. BANNER LGPD (se aparecer)
             try:

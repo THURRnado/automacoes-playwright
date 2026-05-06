@@ -75,11 +75,13 @@ venv.bak/
 config/local.py
 
 # Projetos Playwright 
+automacoes/prefeitura/certificados/
 playwright-report/
 test-results/
 **/screenshots/
 **/downloads/
 uploads/*
+temp_downloads/*
 !uploads/.gitkeep
 
 # Arquivos de dependências
@@ -115,3 +117,6 @@ temp/
 tmp/
 *.bak
 *.tmp
+
+.claudeignore
+CLAUDE.md

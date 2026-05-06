@@ -1,5 +1,5 @@
 from core.navegador import iniciar_navegador, fechar_navegador
-from core.acoes import acessar, clicar, digitar, entrar_em_iframe, salvar_download, baixar_pdf_url
+from core.acoes import acessar, clicar, digitar, entrar_em_iframe, salvar_download
 from automacoes.login_sefaz import login
 
 """ Empresa para uso: 

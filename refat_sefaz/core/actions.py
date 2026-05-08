@@ -12,6 +12,17 @@ SHORT_TIMEOUT   = 5_000
 
 
 # ──────────────────────────────────────────────
+# UTILITÁRIO INTERNO
+# ──────────────────────────────────────────────
+
+def _prepare_selector(selector: str) -> str:
+    """Adiciona prefixo xpath= se o seletor for XPath."""
+    if selector.startswith("/") or selector.startswith("("):
+        return f"xpath={selector}"
+    return selector
+
+
+# ──────────────────────────────────────────────
 # NAVEGAÇÃO
 # ──────────────────────────────────────────────
 
@@ -40,12 +51,14 @@ def reload(page: Page) -> None:
 
 def wait_for_selector(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
     """Aguarda um elemento aparecer no DOM."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Aguardando elemento: {selector!r}")
     page.wait_for_selector(selector, timeout=timeout)
 
 
 def wait_for_selector_hidden(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
     """Aguarda um elemento desaparecer do DOM."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Aguardando elemento sumir: {selector!r}")
     page.wait_for_selector(selector, state="hidden", timeout=timeout)
 
@@ -70,6 +83,7 @@ def wait(ms: int) -> None:
 
 def element_exists(page: Page, selector: str, timeout: int = SHORT_TIMEOUT) -> bool:
     """Verifica se um elemento existe na página sem lançar exceção."""
+    selector = _prepare_selector(selector)
     try:
         page.wait_for_selector(selector, timeout=timeout)
         logger.debug(f"Elemento encontrado: {selector!r}")
@@ -85,6 +99,7 @@ def element_exists(page: Page, selector: str, timeout: int = SHORT_TIMEOUT) -> b
 
 def click(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
     """Clica em um elemento."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Clicando em: {selector!r}")
     page.wait_for_selector(selector, timeout=timeout)
     page.click(selector)
@@ -92,6 +107,7 @@ def click(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
 
 def click_if_exists(page: Page, selector: str, timeout: int = SHORT_TIMEOUT) -> bool:
     """Clica em um elemento se ele existir. Retorna True se clicou."""
+    selector = _prepare_selector(selector)
     if element_exists(page, selector, timeout):
         logger.debug(f"Clique condicional em: {selector!r}")
         page.click(selector)
@@ -102,6 +118,7 @@ def click_if_exists(page: Page, selector: str, timeout: int = SHORT_TIMEOUT) -> 
 
 def double_click(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
     """Duplo clique em um elemento."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Duplo clique em: {selector!r}")
     page.wait_for_selector(selector, timeout=timeout)
     page.dblclick(selector)
@@ -109,6 +126,7 @@ def double_click(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> N
 
 def hover(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
     """Move o mouse sobre um elemento."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Hover em: {selector!r}")
     page.wait_for_selector(selector, timeout=timeout)
     page.hover(selector)
@@ -120,6 +138,7 @@ def hover(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> None:
 
 def fill(page: Page, selector: str, value: str, timeout: int = DEFAULT_TIMEOUT) -> None:
     """Preenche um campo de texto (limpa antes de preencher)."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Preenchendo {selector!r} com: {value!r}")
     page.wait_for_selector(selector, timeout=timeout)
     page.fill(selector, value)
@@ -127,6 +146,7 @@ def fill(page: Page, selector: str, value: str, timeout: int = DEFAULT_TIMEOUT) 
 
 def type_slowly(page: Page, selector: str, value: str, delay: int = 50) -> None:
     """Digita caractere por caractere (útil para campos com máscara/autocomplete)."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Digitando lentamente em {selector!r}: {value!r}")
     page.wait_for_selector(selector, timeout=DEFAULT_TIMEOUT)
     page.type(selector, value, delay=delay)
@@ -134,12 +154,14 @@ def type_slowly(page: Page, selector: str, value: str, delay: int = 50) -> None:
 
 def clear_field(page: Page, selector: str) -> None:
     """Limpa o conteúdo de um campo."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Limpando campo: {selector!r}")
     page.fill(selector, "")
 
 
 def select_option(page: Page, selector: str, value: str = None, label: str = None) -> None:
     """Seleciona uma opção em um <select>."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Selecionando opção em {selector!r} — value={value!r} label={label!r}")
     page.wait_for_selector(selector, timeout=DEFAULT_TIMEOUT)
     if label:
@@ -152,6 +174,7 @@ def select_option(page: Page, selector: str, value: str = None, label: str = Non
 
 def check(page: Page, selector: str) -> None:
     """Marca um checkbox."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Marcando checkbox: {selector!r}")
     page.wait_for_selector(selector, timeout=DEFAULT_TIMEOUT)
     page.check(selector)
@@ -159,6 +182,7 @@ def check(page: Page, selector: str) -> None:
 
 def uncheck(page: Page, selector: str) -> None:
     """Desmarca um checkbox."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Desmarcando checkbox: {selector!r}")
     page.wait_for_selector(selector, timeout=DEFAULT_TIMEOUT)
     page.uncheck(selector)
@@ -166,6 +190,7 @@ def uncheck(page: Page, selector: str) -> None:
 
 def press_key(page: Page, selector: str, key: str) -> None:
     """Pressiona uma tecla em um elemento (ex: 'Enter', 'Tab', 'Escape')."""
+    selector = _prepare_selector(selector)
     logger.debug(f"Pressionando tecla {key!r} em: {selector!r}")
     page.wait_for_selector(selector, timeout=DEFAULT_TIMEOUT)
     page.press(selector, key)
@@ -173,6 +198,7 @@ def press_key(page: Page, selector: str, key: str) -> None:
 
 def get_text(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     """Retorna o texto visível de um elemento."""
+    selector = _prepare_selector(selector)
     page.wait_for_selector(selector, timeout=timeout)
     text = page.inner_text(selector).strip()
     logger.debug(f"Texto obtido de {selector!r}: {text!r}")
@@ -181,6 +207,7 @@ def get_text(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> str:
 
 def get_value(page: Page, selector: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     """Retorna o valor de um campo de input."""
+    selector = _prepare_selector(selector)
     page.wait_for_selector(selector, timeout=timeout)
     value = page.input_value(selector).strip()
     logger.debug(f"Valor obtido de {selector!r}: {value!r}")

@@ -30,6 +30,7 @@ def get_launch_options() -> dict:
         "--no-first-run",
         "--no-default-browser-check",
         "--mute-audio",
+        "--disable-pdf-viewer",
     ]
 
     return {
@@ -37,6 +38,7 @@ def get_launch_options() -> dict:
         "args": args,
         "slow_mo": 0 if IS_HEADLESS else 100,
         "downloads_path": UPLOADS_DIR,
+        "chromium_sandbox": False,
     }
 
 
@@ -82,17 +84,6 @@ def create_browser_session() -> tuple[sync_playwright, Browser, BrowserContext, 
 
         # Bloqueia recursos desnecessários para agilizar a automação
         context.route("**/*", _block_unnecessary_resources)
-
-        # Desabilita visualização de PDF no browser — força download direto
-        context.add_init_script("""
-            Object.defineProperty(navigator, 'mimeTypes', {
-                get: () => ({
-                    namedItem: () => null,
-                    item: () => null,
-                    length: 0
-                })
-            });
-        """)
 
         page = context.new_page()
 

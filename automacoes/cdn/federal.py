@@ -1,7 +1,7 @@
 import re
 import os
-from browserforge.fingerprints import Screen
-from camoufox.sync_api import Camoufox
+#from browserforge.fingerprints import Screen
+#from camoufox.sync_api import Camoufox
 from core.acoes_camoufox import delay, simular_leitura, clicar, digitar
 
 """

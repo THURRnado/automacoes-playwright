@@ -44,7 +44,7 @@ def executar_automacao():
 
         page.wait_for_url('**/bemVindo.jsf**', timeout=90000)
 
-        '''acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf', wait_until="load")
+        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf', wait_until="load")
         try:
             page.wait_for_load_state("networkidle", timeout=8000)
         except Exception:
@@ -88,11 +88,11 @@ def executar_automacao():
 
         clicar(page, '//*[@id="j_idt102:j_idt170"]')
 
-        salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')'''
+        salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')
 
         # Gerenciar guias
 
-        clicar_js(page, "18640")
+        '''clicar_js(page, "18640")
 
         try:
             page.wait_for_load_state("networkidle", timeout=8000)
@@ -113,7 +113,7 @@ def executar_automacao():
             if td_8 == "emitida":
                 logger.info("Guia já emitida, nada a fazer.")
             else:
-                pass
+                pass'''
 
         # Emitir guia
         ''''clicar_js(page, "18642")

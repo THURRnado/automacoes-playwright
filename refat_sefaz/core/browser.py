@@ -1,4 +1,5 @@
 import os
+import tempfile
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 
 from core.logger import get_logger
@@ -37,7 +38,7 @@ def get_launch_options() -> dict:
         "headless": IS_HEADLESS,
         "args": args,
         "slow_mo": 0 if IS_HEADLESS else 100,
-        "downloads_path": UPLOADS_DIR,
+        "downloads_path": tempfile.gettempdir(),
         "chromium_sandbox": False,
     }
 
@@ -80,7 +81,7 @@ def create_browser_session() -> tuple[sync_playwright, Browser, BrowserContext, 
         logger.debug("Browser Chromium iniciado com sucesso")
 
         context = browser.new_context(**get_context_options())
-        logger.debug(f"Contexto criado — downloads em: {UPLOADS_DIR}")
+        logger.debug(f"Contexto criado — staging de downloads em: {tempfile.gettempdir()}")
 
         # Bloqueia recursos desnecessários para agilizar a automação
         context.route("**/*", _block_unnecessary_resources)
@@ -102,13 +103,28 @@ def create_browser_session() -> tuple[sync_playwright, Browser, BrowserContext, 
 
 
 def _block_unnecessary_resources(route) -> None:
-    """Bloqueia tipos de recursos que não são necessários para a automação."""
+    """Bloqueia recursos desnecessários e força download de PDFs."""
     blocked_types = {"image", "media", "font"}
     if route.request.resource_type in blocked_types:
         logger.debug(f"Recurso bloqueado: [{route.request.resource_type}] {route.request.url[:80]}")
         route.abort()
-    else:
-        route.continue_()
+        return
+
+    response = route.fetch()
+    content_type = response.headers.get("content-type", "")
+
+    if "application/pdf" in content_type:
+        headers = dict(response.headers)
+        headers["content-disposition"] = "attachment"
+        logger.debug(f"PDF interceptado — forçando download: {route.request.url[:80]}")
+        route.fulfill(
+            status=response.status,
+            headers=headers,
+            body=response.body(),
+        )
+        return
+
+    route.fulfill(response=response)
 
 
 def close_browser_session(pw: sync_playwright, browser: Browser) -> None:

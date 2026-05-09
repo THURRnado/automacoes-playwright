@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.login import login
 from core.browser import close_browser_session
@@ -46,6 +48,8 @@ def run(
     os.makedirs(process_download_dir, exist_ok=True)
     logger.debug(f"Diretório de download do processo: {process_download_dir}")
 
+    download = None
+
     try:
         # Acessa a página do processo
         logger.info(f"Acessando página do extrato: {EXTRATO_URL}")
@@ -78,29 +82,23 @@ def run(
         )
         logger.debug("Razão Social preenchida — empresa encontrada")
 
-        # Clica em Consultar na página principal
-        logger.debug("Clicando em Consultar")
-        with context.expect_page() as new_page_info:
+        # Clica em Consultar e captura o download diretamente na página atual
+        # O route intercept com Content-Disposition: attachment emite o download no page, sem abrir nova aba
+        logger.info("Clicando em Consultar — aguardando download do PDF")
+        with page.expect_download() as download_info:
             click(page, 'input[name="Submit"]')
-
-        new_page = new_page_info.value
-        new_page.wait_for_load_state("domcontentloaded")
-
-        # Aguarda e salva o download do PDF
-        logger.info("Aguardando download do PDF")
-        with new_page.expect_download() as download_info:
-            pass
 
         download = download_info.value
         filename = download.suggested_filename or "extrato_pagamento.pdf"
+        if not filename.lower().endswith(".pdf"):
+            filename = os.path.splitext(filename)[0] + ".pdf"
         dest_path = os.path.join(process_download_dir, filename)
         download.save_as(dest_path)
+        try:
+            download.delete()
+        except Exception:
+            pass
         logger.info(f"Download concluído: {dest_path}")
-
-        # Fecha a nova aba e retorna para a original
-        new_page.close()
-        page.bring_to_front()
-        logger.debug("Nova aba fechada — retornando para aba original")
 
         return dest_path
 
@@ -109,6 +107,11 @@ def run(
         raise
 
     finally:
+        if download:
+            try:
+                download.delete()
+            except Exception:
+                pass
         close_browser_session(pw, browser)
         logger.info("Sessão encerrada")
 

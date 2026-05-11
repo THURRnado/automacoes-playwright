@@ -103,14 +103,19 @@ def create_browser_session() -> tuple[sync_playwright, Browser, BrowserContext, 
 
 
 def _block_unnecessary_resources(route) -> None:
-    """Bloqueia recursos desnecessários e força download de PDFs."""
     blocked_types = {"image", "media", "font"}
     if route.request.resource_type in blocked_types:
         logger.debug(f"Recurso bloqueado: [{route.request.resource_type}] {route.request.url[:80]}")
         route.abort()
         return
 
-    response = route.fetch()
+    try:
+        response = route.fetch()
+    except Exception as e:
+        logger.debug(f"route.fetch() falhou — continuando sem intercept: {e}")
+        route.continue_()
+        return
+
     content_type = response.headers.get("content-type", "")
 
     if "application/pdf" in content_type:

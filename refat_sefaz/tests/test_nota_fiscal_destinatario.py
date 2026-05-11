@@ -4,7 +4,7 @@ import pytest
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.nota_fiscal_emitente import (
+from services.nota_fiscal_destinatario import (
     run_txt,
     run_xml,
     DEFAULT_DT_INICIO,
@@ -33,7 +33,7 @@ def cleanup_downloads():
             shutil.rmtree(d)
 
 
-class TestNotaFiscalEmitenteTXT:
+class TestNotaFiscalDestinatarioTXT:
 
     def test_download_realizado(self, cleanup_downloads):
         """Testa se o arquivo TXT é baixado e salvo corretamente."""
@@ -74,7 +74,7 @@ class TestNotaFiscalEmitenteTXT:
             run_txt()
 
 
-class TestNotaFiscalEmitenteXML:
+class TestNotaFiscalDestinatarioXML:
 
     def test_download_realizado(self, cleanup_downloads):
         """Testa se o arquivo ZIP com XMLs é baixado e salvo corretamente."""

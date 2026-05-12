@@ -12,7 +12,7 @@ CAIXA_MSG_URL = (
     "?idSERVirtual=S&h=https://www.sefaz.pb.gov.br/ser/servirtual/credenciamento/info"
 )
 
-MAX_TENTATIVAS   = 7
+MAX_TENTATIVAS   = 5
 INTERVALO_ESPERA = 15  # segundos
 
 

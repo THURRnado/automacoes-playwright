@@ -118,5 +118,7 @@ tmp/
 *.bak
 *.tmp
 
+certificados/
+
 .claudeignore
 CLAUDE.md

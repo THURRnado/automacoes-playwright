@@ -1,10 +1,15 @@
 import os
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
-from core.acoes import acessar, clicar, esperar, digitar, aguardar_elemento, salvar_download_ou_toast, limpar, clicar_js, tirar_screenshot
+from core.acoes import (
+    acessar, clicar, esperar, aguardar_elemento,
+    salvar_download, limpar, clicar_js, verificar_toast, elemento_existe,
+    digitar
+)
 from dotenv import load_dotenv
 import logging
-from datetime import datetime
+from datetime import date, datetime
+from calendar import monthrange
 
 load_dotenv()
 
@@ -15,6 +20,13 @@ FERNET_KEY = os.getenv("FERNET_KEY")
 
 caminho_cert = os.getenv('CAMINHO_CERTIFICADO')
 senha_cert = os.getenv('SENHA_CERTIFICADO')
+
+
+def _competencia_anterior() -> str:
+    hoje = date.today()
+    if hoje.month == 1:
+        return f"01/{hoje.year - 1}"
+    return f"{hoje.month - 1:02d}/{hoje.year}"
 
 
 def executar_automacao():
@@ -38,123 +50,232 @@ def executar_automacao():
             cert_origin="https://receita.joaopessoa.pb.gov.br"
         )
 
+        # --- LOGIN VIA CERTIFICADO DIGITAL ---
         acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/portal/index.html#/login')
-
         clicar(page, '//*[@id="app"]/div/main/div/div/div/div[3]/div[2]/div/div[3]/a')
-
         page.wait_for_url('**/bemVindo.jsf**', timeout=90000)
 
-        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf', wait_until="load")
-        try:
-            page.wait_for_load_state("networkidle", timeout=8000)
-        except Exception:
-            pass
+        competencia = _competencia_anterior()
 
-        aguardar_elemento(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]')
-        digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idStart_input"]', '02/2026')
-
-        digitar(page, '//*[@id="frmRelatorio:j_idt104:j_idt107:idEnd_input"]', '02/2026')
-
-        clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt131:j_idt136"]/div[2]')
-
-        salvar_download_ou_toast(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_prestados.pdf')
-
-        clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu"]/div[2]')
-
-        clicar(page, '//*[@id="frmRelatorio:j_idt104:j_idt120:idSelectOneMenu_1"]')
-
-        salvar_download_ou_toast(page, '//*[@id="frmRelatorio:j_idt104:j_idt222"]', nome_arquivo='livro_fiscal_servicos_tomados.pdf')
-
-        acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/exportacaonota/exportacaoNota.jsf', wait_until="load")
-        try:
-            page.wait_for_load_state("networkidle", timeout=8000)
-        except Exception:
-            pass
-
-        aguardar_elemento(page, '//*[@id="j_idt102:j_idt106:idStart_input"]')
-        digitar(page, '//*[@id="j_idt102:j_idt106:idStart_input"]', '02/2026')
-
-        digitar(page, '//*[@id="j_idt102:j_idt106:idEnd_input"]', '02/2026')
-
-        limpar(page, '//*[@id="j_idt102:j_idt119:idStart_input"]')
-
-        limpar(page, '//*[@id="j_idt102:j_idt119:idEnd_input"]')
-
-        clicar(page, '//*[@id="j_idt102:j_idt170"]')
-
-        salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_emitidas.xml')
-
-        clicar(page, '//*[@id="j_idt102:j_idt159:j_idt160"]/div/div[2]/div/div[2]')
-
-        clicar(page, '//*[@id="j_idt102:j_idt170"]')
-
-        salvar_download_ou_toast(page, '//*[@id="j_idt102:j_idt183:btnDownload"]', nome_arquivo='exportacao_nota_recebidas.xml')
-
-        # Gerenciar guias
-
-        '''clicar_js(page, "18640")
+        # --- LIVRO FISCAL ---
+        '''with page.expect_response(
+            lambda r: 'relatorioLivroFiscal.jsf' in r.url,
+            timeout=30000
+        ) as response_info:
+            acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/livrofiscal/relatorioLivroFiscal.jsf', wait_until="load")
+        resp = response_info.value
+        if resp.status >= 400:
+            raise Exception(f"Servidor retornou HTTP {resp.status} para o Livro Fiscal")
 
         try:
             page.wait_for_load_state("networkidle", timeout=8000)
         except Exception:
             pass
 
-        aguardar_elemento(page, '//*[@id="j_idt99:listEntityDataTableGuia:idDataTableList_data"]/tr[1]')
-        tds = page.locator('//*[@id="j_idt99:listEntityDataTableGuia:idDataTableList_data"]/tr[1]/td').all()
+        if 'relatorioLivroFiscal.jsf' not in page.url:
+            raise Exception(f"Redirecionado inesperadamente para: {page.url}")
 
-        td_3 = tds[3].inner_text().strip()
-        td_8 = tds[8].inner_text().strip().lower()
+        aguardar_elemento(page, '//*[contains(@id, "idStart_input")]')
+        digitar(page, '//*[contains(@id, "idStart_input")]', competencia)
+        digitar(page, '//*[contains(@id, "idEnd_input")]', competencia)
 
-        mes_atual = datetime.now().strftime("%m/%Y")
-
-        if td_3 != mes_atual:
-            logger.info(f"Competência {td_3} diferente do mês atual {mes_atual}, pulando...")
-        else:
-            if td_8 == "emitida":
-                logger.info("Guia já emitida, nada a fazer.")
+        # Livro Fiscal - Serviços Prestados (seleção padrão do Agrupamento)
+        try:
+            salvar_download(
+                page,
+                '//a[contains(@class, "ui-commandlink") and contains(@class, "btn-info") and contains(., "Download")]',
+                nome_arquivo='livro_fiscal_servicos_prestados.pdf',
+                timeout=20000
+            )
+        except Exception:
+            toast = verificar_toast(page)
+            if toast:
+                logger.info(f"Toast livro prestados: '{toast}'")
             else:
+                raise
+
+        # Livro Fiscal - Serviços Tomados
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+        aguardar_elemento(page, '//div[contains(@id, "idSelectOneMenu") and .//select[@data-p-label="Agrupamento"]]')
+        clicar(page, '//div[contains(@id, "idSelectOneMenu") and .//select[@data-p-label="Agrupamento"]]//div[contains(@class, "ui-selectonemenu-trigger")]')
+        aguardar_elemento(page, '//li[contains(@id, "idSelectOneMenu_") and normalize-space(.)="Serviços Tomados"]')
+        clicar(page, '//li[contains(@id, "idSelectOneMenu_") and normalize-space(.)="Serviços Tomados"]')
+        try:
+            salvar_download(
+                page,
+                '//a[contains(@class, "ui-commandlink") and contains(@class, "btn-info") and contains(., "Download")]',
+                nome_arquivo='livro_fiscal_servicos_tomados.pdf',
+                timeout=20000
+            )
+        except Exception:
+            toast = verificar_toast(page)
+            if toast:
+                logger.info(f"Toast livro tomados: '{toast}'")
+            else:
+                raise
+
+        # --- EXPORTAÇÃO DE NOTAS ---
+        with page.expect_response(
+            lambda r: 'exportacaoNota.jsf' in r.url,
+            timeout=30000
+        ) as response_info:
+            acessar(page, 'https://receita.joaopessoa.pb.gov.br/notafiscal/paginas/exportacaonota/exportacaoNota.jsf', wait_until="load")
+        resp = response_info.value
+        if resp.status >= 400:
+            raise Exception(f"Servidor retornou HTTP {resp.status} para a Exportação de Notas")
+
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+
+        if 'exportacaoNota.jsf' not in page.url:
+            raise Exception(f"Redirecionado inesperadamente para: {page.url}")
+
+        aguardar_elemento(page, '//input[@data-p-label="Inicio" and contains(@id, "idStart_input")]')
+        digitar(page, '//input[@data-p-label="Inicio" and contains(@id, "idStart_input")]', competencia)
+        digitar(page, '//input[@data-p-label="Fim" and contains(@id, "idEnd_input")]', competencia)
+        limpar(page, '//input[@data-p-label="Data Inicio" and contains(@id, "idStart_input")]')
+        limpar(page, '//input[@data-p-label="Data Fim" and contains(@id, "idEnd_input")]')
+        _BTN_DOWNLOAD = '//a[contains(@id, "btnDownload") and not(contains(@id, "btnDownloadFinal"))]'
+
+        clicar(page, '//a[contains(@class, "btn-info") and contains(., "Gerar Relação Notas")]')
+
+        # Exportação - Notas Emitidas
+        try:
+            if elemento_existe(page, _BTN_DOWNLOAD, timeout=15000):
+                try:
+                    salvar_download(
+                        page, _BTN_DOWNLOAD,
+                        nome_arquivo='exportacao_nota_emitidas.xml',
+                        timeout=20000
+                    )
+                except Exception:
+                    toast = verificar_toast(page)
+                    if toast:
+                        logger.info(f"Toast exportação emitidas: '{toast}'")
+                    else:
+                        raise
+            else:
+                toast = verificar_toast(page)
+                if toast:
+                    logger.info(f"Toast exportação emitidas (sem dialog): '{toast}'")
+        finally:
+            try:
+                page.evaluate("if (typeof hideMessageProcess === 'function') hideMessageProcess();")
+            except Exception:
+                pass
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+
+        # Exportação - Notas Recebidas
+        clicar(page, '//input[@value="R" and @data-p-label="Serviço"]/ancestor::div[contains(@class, "ui-radiobutton")]//div[contains(@class, "ui-radiobutton-box")]')
+        clicar(page, '//a[contains(@class, "btn-info") and contains(., "Gerar Relação Notas")]')
+        try:
+            if elemento_existe(page, _BTN_DOWNLOAD, timeout=15000):
+                try:
+                    salvar_download(
+                        page, _BTN_DOWNLOAD,
+                        nome_arquivo='exportacao_nota_recebidas.xml',
+                        timeout=20000
+                    )
+                except Exception:
+                    toast = verificar_toast(page)
+                    if toast:
+                        logger.info(f"Toast exportação recebidas: '{toast}'")
+                    else:
+                        raise
+            else:
+                toast = verificar_toast(page)
+                if toast:
+                    logger.info(f"Toast exportação recebidas (sem dialog): '{toast}'")
+        finally:
+            try:
+                page.evaluate("if (typeof hideMessageProcess === 'function') hideMessageProcess();")
+            except Exception:
+                pass
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
                 pass'''
 
-        # Emitir guia
-        ''''clicar_js(page, "18642")
-        esperar(page, 5)
+        # --- GUIA ---
+        clicar_js(page, "18640")
 
         try:
             page.wait_for_load_state("networkidle", timeout=8000)
         except Exception:
             pass
 
-        aguardar_elemento(page, '//*[@id="j_idt99:j_idt220:commandLinkSaveNoTask"]')
-        respostas = []
+        with context.expect_page(timeout=15000) as nova_aba_info:
+            clicar_js(page, "18642")
+        guia_page = nova_aba_info.value
 
-        def capturar(response):
-            respostas.append(f"{response.status} {response.headers.get('content-type', '')} {response.url}")
+        try:
+            guia_page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass
 
-        page.on("response", capturar)
-        clicar(page, '//*[@id="j_idt99:j_idt220:commandLinkSaveNoTask"]')
-        esperar(page, 3)
-        page.remove_listener("response", capturar)
+        aguardar_elemento(guia_page, '//*[contains(@id, "idGuiaCompetencia_input")]')
+        competencia_guia = guia_page.locator('//*[contains(@id, "idGuiaCompetencia_input")]').input_value().strip()
 
-        for r in respostas:
-            print(r)
+        hoje = datetime.now()
+        mes_ant = hoje.month - 1 if hoje.month > 1 else 12
+        ano_ant = hoje.year if hoje.month > 1 else hoje.year - 1
+        mes_anterior = f"{mes_ant:02d}/{ano_ant}"
 
-        # Debug: ver o que aparece na tela após o clique
-        tirar_screenshot(page, "modal_apos_clique")
+        if competencia_guia != mes_anterior:
+            logger.info(f"Competência da guia ({competencia_guia}) diferente do mês anterior ({mes_anterior}), alterando...")
+            mes_num = int(mes_anterior.split('/')[0])
+            ano_alvo = int(mes_anterior.split('/')[1])
+            ultimo_dia = monthrange(ano_alvo, mes_num)[1]
 
-        # Inspecionar HTML do dialog visível
-        html_dialog = page.evaluate("""
-            () => {
-                const dialogs = document.querySelectorAll('.ui-dialog');
-                return Array.from(dialogs)
-                    .filter(d => d.style.display !== 'none' && d.offsetParent !== null)
-                    .map(d => d.outerHTML.substring(0, 2000));
-            }
-        """)
-        for i, h in enumerate(html_dialog):
-            print(f"--- Dialog {i} ---")
-            print(h)'''
+            curr_mes = int(competencia_guia.split('/')[0])
+            curr_ano = int(competencia_guia.split('/')[1])
+            meses_diff = (curr_ano - ano_alvo) * 12 + (curr_mes - mes_num)
 
-        esperar(page, 10)
+            clicar(guia_page, '//*[contains(@id, "idGuiaCompetencia")]//button[contains(@class, "ui-datepicker-trigger")]')
+            aguardar_elemento(guia_page, '//*[contains(@id, "idGuiaCompetencia_panel")]')
+
+            for _ in range(abs(meses_diff)):
+                btn = 'ui-datepicker-prev' if meses_diff > 0 else 'ui-datepicker-next'
+                clicar(guia_page, f'//*[contains(@id, "idGuiaCompetencia_panel")]//button[contains(@class, "{btn}")]')
+                esperar(guia_page, 0.3)
+
+            clicar(guia_page, f'//*[contains(@id, "idGuiaCompetencia_panel")]//td[not(contains(@class, "ui-datepicker-other-month"))]/a[normalize-space(text())="{ultimo_dia}"]')
+
+            try:
+                guia_page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            clicar(guia_page, '//a[contains(@class, "jarch-btn-search") and contains(., "Carregar Notas")]')
+            try:
+                guia_page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+
+        aguardar_elemento(guia_page, '//*[contains(@class, "hbggreen")]//h3')
+        valor_guia = guia_page.locator('//*[contains(@class, "hbggreen")]//h3').inner_text().strip()
+
+        if valor_guia == "R$ 0,00":
+            logger.info("Guia sem valor, nada a emitir.")
+        else:
+            logger.info(f"Guia com valor {valor_guia}, emitindo PDF...")
+            try:
+                salvar_download(guia_page, '//*[contains(@class, "paneldatamaster__button-notask")]', nome_arquivo='guia.pdf')
+            except Exception:
+                toast = verificar_toast(guia_page)
+                if toast:
+                    logger.info(f"Toast guia: '{toast}'")
+                else:
+                    raise
+
+        esperar(guia_page, 10)
 
     finally:
         if playwright:

@@ -236,11 +236,24 @@ def scroll(alvo, xpath: str = None, direction: str = "down", amount: int = 300, 
         raise e
     
 
-def clicar_js(page: Page, id_elemento: str) -> None:
-    """Clica em um elemento filho <a> pelo ID do elemento pai."""
+def clicar_js(page: Page, id_elemento: str, timeout: int = 10000, expandir_apenas: bool = False) -> None:
+    """Clica em um elemento filho <a> pelo ID do elemento pai.
+
+    Se expandir_apenas=True, só clica se o elemento não tiver a classe 'active' (evita fechar menu já aberto).
+    """
     try:
         logger.info(f"Clicando via JS no elemento id: {id_elemento}")
-        page.evaluate(f'document.getElementById("{id_elemento}").querySelector("a").click()')
+        page.locator(f'[id="{id_elemento}"] > a').first.wait_for(state="attached", timeout=timeout)
+        if expandir_apenas:
+            ja_ativo = page.evaluate(f'document.getElementById("{id_elemento}").classList.contains("active")')
+            if ja_ativo:
+                logger.info(f"Elemento {id_elemento} já está ativo, pulando clique")
+                return
+        page.evaluate(f'''
+            var el = document.getElementById("{id_elemento}");
+            el.scrollIntoView({{block: "center"}});
+            el.querySelector("a").click();
+        ''')
     except Exception as e:
         logger.error(f"Erro ao clicar via JS no elemento {id_elemento}: {e}")
         raise e

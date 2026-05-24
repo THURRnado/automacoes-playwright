@@ -1,4 +1,5 @@
 import os
+
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
 from core.acoes import (
@@ -41,10 +42,10 @@ def executar_automacao():
         FERNET_KEY
     )
 
-    playwright, browser, context, page = None, None, None, None
+    playwright, browser, page = None, None, None
 
     try:
-        playwright, browser, context, page = iniciar_navegador(
+        playwright, browser, _, page = iniciar_navegador(
             cert_path=cert_path,
             key_path=key_path,
             cert_origin="https://receita.joaopessoa.pb.gov.br"
@@ -205,19 +206,18 @@ def executar_automacao():
                 pass'''
 
         # --- GUIA ---
-        clicar_js(page, "18640")
+        clicar_js(page, "18639", expandir_apenas=True)  # expande o menu "Guia" se ainda não estiver ativo
 
         try:
-            page.wait_for_load_state("networkidle", timeout=8000)
+            page.wait_for_load_state("networkidle", timeout=15000)
         except Exception:
             pass
 
-        with context.expect_page(timeout=15000) as nova_aba_info:
-            clicar_js(page, "18642")
-        guia_page = nova_aba_info.value
+        clicar_js(page, "18642")
+        guia_page = page
 
         try:
-            guia_page.wait_for_load_state("networkidle", timeout=15000)
+            guia_page.wait_for_load_state("networkidle", timeout=30000)
         except Exception:
             pass
 
@@ -244,10 +244,15 @@ def executar_automacao():
 
             for _ in range(abs(meses_diff)):
                 btn = 'ui-datepicker-prev' if meses_diff > 0 else 'ui-datepicker-next'
-                clicar(guia_page, f'//*[contains(@id, "idGuiaCompetencia_panel")]//button[contains(@class, "{btn}")]')
+                guia_page.evaluate(f'document.querySelector("[id*=\'idGuiaCompetencia_panel\'] .{btn}").click()')
                 esperar(guia_page, 0.3)
 
-            clicar(guia_page, f'//*[contains(@id, "idGuiaCompetencia_panel")]//td[not(contains(@class, "ui-datepicker-other-month"))]/a[normalize-space(text())="{ultimo_dia}"]')
+            guia_page.evaluate(f'''
+                var tds = document.querySelectorAll('[id*="idGuiaCompetencia_panel"] td:not(.ui-datepicker-other-month) a');
+                for (var a of tds) {{
+                    if (a.textContent.trim() === "{ultimo_dia}") {{ a.click(); break; }}
+                }}
+            ''')
 
             try:
                 guia_page.wait_for_load_state("networkidle", timeout=8000)

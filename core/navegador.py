@@ -1,6 +1,30 @@
 from playwright.sync_api import sync_playwright
 import os
 
+
+def _forcar_download_pdf(route):
+    """Intercepta PDFs e força download em vez de abrir no visualizador."""
+    try:
+        response = route.fetch()
+    except Exception:
+        route.continue_()
+        return
+
+    content_type = response.headers.get("content-type", "")
+
+    if "application/pdf" in content_type:
+        headers = dict(response.headers)
+        headers["content-disposition"] = "attachment"
+        route.fulfill(
+            status=response.status,
+            headers=headers,
+            body=response.body(),
+        )
+        return
+
+    route.fulfill(response=response)
+
+
 def iniciar_navegador(
     headless: bool = False,
     slow_mo: int = 0,
@@ -32,6 +56,10 @@ def iniciar_navegador(
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
         client_certificates=client_certificates or None,
     )
+
+    context.route("**/guia/**", _forcar_download_pdf)
+    context.route("**/livrofiscal/**", _forcar_download_pdf)
+    context.route("**/exportacaonota/**", _forcar_download_pdf)
 
     page = context.new_page()
 

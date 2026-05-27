@@ -3,9 +3,7 @@ import os
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
 from core.acoes import (
-    acessar, clicar, esperar, aguardar_elemento,
-    salvar_download, limpar, clicar_js, verificar_toast, elemento_existe,
-    digitar
+    acessar, clicar, esperar, aguardar_elemento, clicar_js, elemento_existe
 )
 from dotenv import load_dotenv
 import logging
@@ -271,14 +269,41 @@ def executar_automacao():
             logger.info("Guia sem valor, nada a emitir.")
         else:
             logger.info(f"Guia com valor {valor_guia}, emitindo PDF...")
-            try:
-                salvar_download(guia_page, '//*[contains(@class, "paneldatamaster__button-notask")]', nome_arquivo='guia.pdf')
-            except Exception:
-                toast = verificar_toast(guia_page)
-                if toast:
-                    logger.info(f"Toast guia: '{toast}'")
-                else:
-                    raise
+
+            pdf_bytes_holder = []
+
+            def _capturar_guia(route):
+                try:
+                    response = route.fetch()
+                except Exception:
+                    route.continue_()
+                    return
+                body = response.body()
+                if "application/pdf" in response.headers.get("content-type", ""):
+                    pdf_bytes_holder.append(body)
+                route.fulfill(response=response)
+
+            guia_page.route("**/dynamiccontent.properties.jsf**", _capturar_guia)
+
+            with guia_page.expect_response(
+                lambda r: "application/pdf" in r.headers.get("content-type", ""),
+                timeout=30000
+            ):
+                clicar(guia_page, '//*[contains(@class, "paneldatamaster__button-notask")]')
+                if elemento_existe(guia_page, '//button[contains(@class, "swal-button--confirm")]', timeout=10000):
+                    clicar(guia_page, '//button[contains(@class, "swal-button--confirm")]')
+
+            guia_page.unroute("**/dynamiccontent.properties.jsf**", _capturar_guia)
+
+            if not pdf_bytes_holder:
+                raise Exception("PDF da guia não capturado dentro do timeout")
+
+            pasta = os.path.abspath("temp_downloads")
+            os.makedirs(pasta, exist_ok=True)
+            caminho_guia = os.path.join(pasta, "guia.pdf")
+            with open(caminho_guia, "wb") as f:
+                f.write(pdf_bytes_holder[0])
+            logger.info(f"Guia salva em: {caminho_guia}")
 
         esperar(guia_page, 10)
 

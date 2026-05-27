@@ -3,7 +3,8 @@ import os
 from core.navegador import iniciar_navegador, fechar_navegador
 from core.cert_to_pem_criptography import decifrar_certificado, apagar_certificado_temp, extrair_e_criptografar_pfx
 from core.acoes import (
-    acessar, clicar, esperar, aguardar_elemento, clicar_js, elemento_existe
+    acessar, clicar, esperar, aguardar_elemento, clicar_js, elemento_existe,
+    digitar, limpar, salvar_download, verificar_toast
 )
 from dotenv import load_dotenv
 import logging
@@ -26,6 +27,146 @@ def _competencia_anterior() -> str:
     if hoje.month == 1:
         return f"01/{hoje.year - 1}"
     return f"{hoje.month - 1:02d}/{hoje.year}"
+
+
+def _navegar_ate_guia(page, retido_na_fonte: bool = False):
+    """
+    Refaz todo o caminho até a tela da guia: menu, entrada, ajuste de competência,
+    (opcionalmente) marca 'Retido na Fonte', e carrega as notas.
+    Espera a tela inicial (bemVindo.jsf) já estar carregada antes de chamar.
+    """
+    clicar_js(page, "18639", expandir_apenas=True)
+
+    try:
+        page.wait_for_load_state("networkidle", timeout=15000)
+    except Exception:
+        pass
+
+    clicar_js(page, "18642")
+
+    try:
+        page.wait_for_load_state("networkidle", timeout=30000)
+    except Exception:
+        pass
+
+    aguardar_elemento(page, '//*[contains(@id, "idGuiaCompetencia_input")]')
+    competencia_guia = page.locator('//*[contains(@id, "idGuiaCompetencia_input")]').input_value().strip()
+
+    hoje = datetime.now()
+    mes_ant = hoje.month - 1 if hoje.month > 1 else 12
+    ano_ant = hoje.year if hoje.month > 1 else hoje.year - 1
+    mes_anterior = f"{mes_ant:02d}/{ano_ant}"
+
+    if competencia_guia != mes_anterior:
+        logger.info(f"Competência da guia ({competencia_guia}) diferente do mês anterior ({mes_anterior}), alterando...")
+        mes_num = int(mes_anterior.split('/')[0])
+        ano_alvo = int(mes_anterior.split('/')[1])
+        ultimo_dia = monthrange(ano_alvo, mes_num)[1]
+
+        curr_mes = int(competencia_guia.split('/')[0])
+        curr_ano = int(competencia_guia.split('/')[1])
+        meses_diff = (curr_ano - ano_alvo) * 12 + (curr_mes - mes_num)
+
+        clicar(page, '//*[contains(@id, "idGuiaCompetencia")]//button[contains(@class, "ui-datepicker-trigger")]')
+        aguardar_elemento(page, '//*[contains(@id, "idGuiaCompetencia_panel")]')
+
+        for _ in range(abs(meses_diff)):
+            btn = 'ui-datepicker-prev' if meses_diff > 0 else 'ui-datepicker-next'
+            page.evaluate(f'document.querySelector("[id*=\'idGuiaCompetencia_panel\'] .{btn}").click()')
+            esperar(page, 0.3)
+
+        page.evaluate(f'''
+            var tds = document.querySelectorAll('[id*="idGuiaCompetencia_panel"] td:not(.ui-datepicker-other-month) a');
+            for (var a of tds) {{
+                if (a.textContent.trim() === "{ultimo_dia}") {{ a.click(); break; }}
+            }}
+        ''')
+
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+
+    # Marca 'Retido na Fonte' ANTES de carregar as notas, pois influencia o carregamento
+    if retido_na_fonte:
+        logger.info("Marcando 'Retido na Fonte' antes de carregar as notas...")
+        clicar(page, '//input[@value="RNF" and @data-p-label="Tipo Recolhimento"]/ancestor::div[contains(@class, "ui-radiobutton")]//div[contains(@class, "ui-radiobutton-box")]')
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+
+    clicar(page, '//a[contains(@class, "jarch-btn-search") and contains(., "Carregar Notas")]')
+    try:
+        page.wait_for_load_state("networkidle", timeout=8000)
+    except Exception:
+        pass
+
+
+def _verificar_e_emitir_guia(guia_page, nome_arquivo: str) -> bool:
+    """
+    Lê o valor da guia e, se houver valor, emite, baixa o PDF e fecha o dialog.
+    Retorna True se emitiu (e portanto o site redirecionou para a tela inicial),
+    False se não havia valor a emitir (segue na mesma tela).
+    """
+    aguardar_elemento(guia_page, '//*[contains(@class, "hbggreen")]//h3')
+    valor_guia = guia_page.locator('//*[contains(@class, "hbggreen")]//h3').inner_text().strip()
+
+    if valor_guia == "R$ 0,00":
+        logger.info(f"Guia sem valor ({nome_arquivo}), nada a emitir.")
+        return False
+
+    logger.info(f"Guia com valor {valor_guia}, emitindo PDF ({nome_arquivo})...")
+
+    pdf_bytes_holder = []
+
+    def _capturar_guia(route):
+        try:
+            response = route.fetch()
+        except Exception:
+            route.continue_()
+            return
+        body = response.body()
+        if "application/pdf" in response.headers.get("content-type", ""):
+            pdf_bytes_holder.append(body)
+        route.fulfill(response=response)
+
+    guia_page.route("**/dynamiccontent.properties.jsf**", _capturar_guia)
+
+    try:
+        with guia_page.expect_response(
+            lambda r: "application/pdf" in r.headers.get("content-type", ""),
+            timeout=30000
+        ):
+            clicar(guia_page, '//*[contains(@class, "paneldatamaster__button-notask")]')
+            if elemento_existe(guia_page, '//button[contains(@class, "swal-button--confirm")]', timeout=10000):
+                clicar(guia_page, '//button[contains(@class, "swal-button--confirm")]')
+    finally:
+        guia_page.unroute("**/dynamiccontent.properties.jsf**", _capturar_guia)
+
+    if not pdf_bytes_holder:
+        raise Exception(f"PDF da guia não capturado dentro do timeout ({nome_arquivo})")
+
+    pasta = os.path.abspath("temp_downloads")
+    os.makedirs(pasta, exist_ok=True)
+    caminho_guia = os.path.join(pasta, nome_arquivo)
+    with open(caminho_guia, "wb") as f:
+        f.write(pdf_bytes_holder[0])
+    logger.info(f"Guia salva em: {caminho_guia}")
+
+    # Fecha o dialog de visualização do PDF, se estiver aberto
+    _BTN_FECHAR_DIALOG = '//*[contains(@id, "dialogVisualizacaoGuia")]//a[contains(@class, "ui-dialog-titlebar-close")]'
+    if elemento_existe(guia_page, _BTN_FECHAR_DIALOG, timeout=10000):
+        logger.info("Fechando dialog de visualização da guia...")
+        clicar(guia_page, _BTN_FECHAR_DIALOG)
+        try:
+            aguardar_elemento(guia_page, '//*[contains(@id, "dialogVisualizacaoGuia")]', state="hidden", timeout=10000)
+        except Exception:
+            logger.warning("Dialog não confirmou fechamento dentro do timeout, seguindo mesmo assim.")
+    else:
+        logger.info("Dialog de visualização não encontrado, nada a fechar.")
+
+    return True
 
 
 def executar_automacao():
@@ -57,7 +198,7 @@ def executar_automacao():
         competencia = _competencia_anterior()
 
         # --- LIVRO FISCAL ---
-        '''with page.expect_response(
+        with page.expect_response(
             lambda r: 'relatorioLivroFiscal.jsf' in r.url,
             timeout=30000
         ) as response_info:
@@ -201,111 +342,38 @@ def executar_automacao():
             try:
                 page.wait_for_load_state("networkidle", timeout=8000)
             except Exception:
-                pass'''
-
-        # --- GUIA ---
-        clicar_js(page, "18639", expandir_apenas=True)  # expande o menu "Guia" se ainda não estiver ativo
-
-        try:
-            page.wait_for_load_state("networkidle", timeout=15000)
-        except Exception:
-            pass
-
-        clicar_js(page, "18642")
-        guia_page = page
-
-        try:
-            guia_page.wait_for_load_state("networkidle", timeout=30000)
-        except Exception:
-            pass
-
-        aguardar_elemento(guia_page, '//*[contains(@id, "idGuiaCompetencia_input")]')
-        competencia_guia = guia_page.locator('//*[contains(@id, "idGuiaCompetencia_input")]').input_value().strip()
-
-        hoje = datetime.now()
-        mes_ant = hoje.month - 1 if hoje.month > 1 else 12
-        ano_ant = hoje.year if hoje.month > 1 else hoje.year - 1
-        mes_anterior = f"{mes_ant:02d}/{ano_ant}"
-
-        if competencia_guia != mes_anterior:
-            logger.info(f"Competência da guia ({competencia_guia}) diferente do mês anterior ({mes_anterior}), alterando...")
-            mes_num = int(mes_anterior.split('/')[0])
-            ano_alvo = int(mes_anterior.split('/')[1])
-            ultimo_dia = monthrange(ano_alvo, mes_num)[1]
-
-            curr_mes = int(competencia_guia.split('/')[0])
-            curr_ano = int(competencia_guia.split('/')[1])
-            meses_diff = (curr_ano - ano_alvo) * 12 + (curr_mes - mes_num)
-
-            clicar(guia_page, '//*[contains(@id, "idGuiaCompetencia")]//button[contains(@class, "ui-datepicker-trigger")]')
-            aguardar_elemento(guia_page, '//*[contains(@id, "idGuiaCompetencia_panel")]')
-
-            for _ in range(abs(meses_diff)):
-                btn = 'ui-datepicker-prev' if meses_diff > 0 else 'ui-datepicker-next'
-                guia_page.evaluate(f'document.querySelector("[id*=\'idGuiaCompetencia_panel\'] .{btn}").click()')
-                esperar(guia_page, 0.3)
-
-            guia_page.evaluate(f'''
-                var tds = document.querySelectorAll('[id*="idGuiaCompetencia_panel"] td:not(.ui-datepicker-other-month) a');
-                for (var a of tds) {{
-                    if (a.textContent.trim() === "{ultimo_dia}") {{ a.click(); break; }}
-                }}
-            ''')
-
-            try:
-                guia_page.wait_for_load_state("networkidle", timeout=8000)
-            except Exception:
-                pass
-            clicar(guia_page, '//a[contains(@class, "jarch-btn-search") and contains(., "Carregar Notas")]')
-            try:
-                guia_page.wait_for_load_state("networkidle", timeout=8000)
-            except Exception:
                 pass
 
-        aguardar_elemento(guia_page, '//*[contains(@class, "hbggreen")]//h3')
-        valor_guia = guia_page.locator('//*[contains(@class, "hbggreen")]//h3').inner_text().strip()
+        # --- GUIA NORMAL ---
+        _navegar_ate_guia(page, retido_na_fonte=False)
+        emitiu_normal = _verificar_e_emitir_guia(page, "guia.pdf")
 
-        if valor_guia == "R$ 0,00":
-            logger.info("Guia sem valor, nada a emitir.")
+        # --- GUIA RETIDO NA FONTE ---
+        if emitiu_normal:
+            # Emitiu a guia normal → o site redirecionou para a tela inicial.
+            # Espera a tela inicial e refaz o caminho completo, já marcando Retido na Fonte.
+            logger.info("Guia normal emitida, refazendo caminho para Retido na Fonte...")
+            page.wait_for_url('**/bemVindo.jsf**', timeout=90000)
+            _navegar_ate_guia(page, retido_na_fonte=True)
         else:
-            logger.info(f"Guia com valor {valor_guia}, emitindo PDF...")
+            # Guia normal sem valor → continuamos na tela da guia, sem redirecionamento.
+            # Como o 'Retido na Fonte' deve ser marcado antes de carregar as notas,
+            # marcamos aqui e recarregamos as notas na mesma tela.
+            logger.info("Guia normal sem valor, marcando Retido na Fonte na mesma tela...")
+            clicar(page, '//input[@value="RNF" and @data-p-label="Tipo Recolhimento"]/ancestor::div[contains(@class, "ui-radiobutton")]//div[contains(@class, "ui-radiobutton-box")]')
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            clicar(page, '//a[contains(@class, "jarch-btn-search") and contains(., "Carregar Notas")]')
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
 
-            pdf_bytes_holder = []
+        _verificar_e_emitir_guia(page, "guia_retido_fonte.pdf")
 
-            def _capturar_guia(route):
-                try:
-                    response = route.fetch()
-                except Exception:
-                    route.continue_()
-                    return
-                body = response.body()
-                if "application/pdf" in response.headers.get("content-type", ""):
-                    pdf_bytes_holder.append(body)
-                route.fulfill(response=response)
-
-            guia_page.route("**/dynamiccontent.properties.jsf**", _capturar_guia)
-
-            with guia_page.expect_response(
-                lambda r: "application/pdf" in r.headers.get("content-type", ""),
-                timeout=30000
-            ):
-                clicar(guia_page, '//*[contains(@class, "paneldatamaster__button-notask")]')
-                if elemento_existe(guia_page, '//button[contains(@class, "swal-button--confirm")]', timeout=10000):
-                    clicar(guia_page, '//button[contains(@class, "swal-button--confirm")]')
-
-            guia_page.unroute("**/dynamiccontent.properties.jsf**", _capturar_guia)
-
-            if not pdf_bytes_holder:
-                raise Exception("PDF da guia não capturado dentro do timeout")
-
-            pasta = os.path.abspath("temp_downloads")
-            os.makedirs(pasta, exist_ok=True)
-            caminho_guia = os.path.join(pasta, "guia.pdf")
-            with open(caminho_guia, "wb") as f:
-                f.write(pdf_bytes_holder[0])
-            logger.info(f"Guia salva em: {caminho_guia}")
-
-        esperar(guia_page, 10)
+        esperar(page, 10)
 
     finally:
         if playwright:

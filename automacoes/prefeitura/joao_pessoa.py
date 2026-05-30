@@ -8,8 +8,7 @@ from core.acoes import (
 )
 from dotenv import load_dotenv
 import logging
-from datetime import date, datetime
-from calendar import monthrange
+from datetime import date
 
 load_dotenv()
 
@@ -48,44 +47,6 @@ def _navegar_ate_guia(page, retido_na_fonte: bool = False):
         page.wait_for_load_state("networkidle", timeout=30000)
     except Exception:
         pass
-
-    aguardar_elemento(page, '//*[contains(@id, "idGuiaCompetencia_input")]')
-    competencia_guia = page.locator('//*[contains(@id, "idGuiaCompetencia_input")]').input_value().strip()
-
-    hoje = datetime.now()
-    mes_ant = hoje.month - 1 if hoje.month > 1 else 12
-    ano_ant = hoje.year if hoje.month > 1 else hoje.year - 1
-    mes_anterior = f"{mes_ant:02d}/{ano_ant}"
-
-    if competencia_guia != mes_anterior:
-        logger.info(f"Competência da guia ({competencia_guia}) diferente do mês anterior ({mes_anterior}), alterando...")
-        mes_num = int(mes_anterior.split('/')[0])
-        ano_alvo = int(mes_anterior.split('/')[1])
-        ultimo_dia = monthrange(ano_alvo, mes_num)[1]
-
-        curr_mes = int(competencia_guia.split('/')[0])
-        curr_ano = int(competencia_guia.split('/')[1])
-        meses_diff = (curr_ano - ano_alvo) * 12 + (curr_mes - mes_num)
-
-        clicar(page, '//*[contains(@id, "idGuiaCompetencia")]//button[contains(@class, "ui-datepicker-trigger")]')
-        aguardar_elemento(page, '//*[contains(@id, "idGuiaCompetencia_panel")]')
-
-        for _ in range(abs(meses_diff)):
-            btn = 'ui-datepicker-prev' if meses_diff > 0 else 'ui-datepicker-next'
-            page.evaluate(f'document.querySelector("[id*=\'idGuiaCompetencia_panel\'] .{btn}").click()')
-            esperar(page, 0.3)
-
-        page.evaluate(f'''
-            var tds = document.querySelectorAll('[id*="idGuiaCompetencia_panel"] td:not(.ui-datepicker-other-month) a');
-            for (var a of tds) {{
-                if (a.textContent.trim() === "{ultimo_dia}") {{ a.click(); break; }}
-            }}
-        ''')
-
-        try:
-            page.wait_for_load_state("networkidle", timeout=8000)
-        except Exception:
-            pass
 
     # Marca 'Retido na Fonte' ANTES de carregar as notas, pois influencia o carregamento
     if retido_na_fonte:
